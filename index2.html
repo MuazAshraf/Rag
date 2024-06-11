@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Loader and Chat Interface</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #ffffff;
+            word-wrap: break-word;
+        }
+        .user-message {
+            text-align: right;
+            background-color: #e0f7fa;
+        }
+        .ai-message {
+            text-align: left;
+            background-color: #f1f8e9;
+        }
+        #chatContainer {
+            display: none; /* Initially hidden */
+        }
+        .spinner-border-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Document Loader and Chat Interface</h2>
+        <div class="form-group">
+            <label for="loaderType">Select Loader Type:</label>
+            <select class="form-control" id="loaderType">
+                <option value="">--Select Loader Type--</option>
+                <option value="url">URL</option>
+                <option value="pdf">PDF</option>
+                <option value="text">Text</option>
+                <option value="csv">CSV</option>
+            </select>
+        </div>
+
+        <div class="form-group d-none" id="urlInput">
+            <label for="url">Enter URL:</label>
+            <input type="text" class="form-control" id="url" name="url">
+        </div>
+
+        
+
+        <div class="form-group d-none" id="fileInput">
+            <label for="file">Upload File:</label>
+            <input type="file" class="form-control-file" id="file" name="file">
+        </div>
+
+        <button id="startChat" class="btn btn-primary d-none">Load Document</button>
+
+        <div id="chatContainer">
+            <h5 id="loadSuccessMessage" class="text-success d-none">Document loaded successfully! Start chatting.</h5>
+            <ul id="chat" class="list-unstyled"></ul>
+            <div class="input-group">
+                <input type="text" id="userInput" class="form-control" placeholder="Type your message...">
+                <div class="input-group-append">
+                    <button onclick="sendMessage()" class="btn btn-success">Send</button>
+                    <span id="messageSpinner" class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true" style="display:none;"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="spinner" class="spinner-border text-primary spinner-border-center" role="status" style="display: none;">
+        <span class="sr-only">Loading...</span>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#loaderType').change(function() {
+                let loaderType = $(this).val();
+                $('#startChat').removeClass('d-none');
+
+                if (loaderType === 'url') {
+                    $('#urlInput').removeClass('d-none');
+                    $('#fileInput').addClass('d-none');
+                } else if (loaderType === 'pdf' || loaderType === 'text' || loaderType === 'csv') {
+                    $('#fileInput').removeClass('d-none');
+                    $('#urlInput').addClass('d-none');
+                } else {
+                    $('#fileInput').addClass('d-none');
+                    $('#urlInput').addClass('d-none');
+                    $('#startChat').addClass('d-none');
+                }
+            });
+
+            $('#startChat').click(function() {
+                $('#spinner').show();
+                $('#startChat').hide();
+                let loaderType = $('#loaderType').val();
+                let formData = new FormData();
+                formData.append('session_id', 'unique_session_id');  // Ensure you use a proper session management in production
+                formData.append('loader_type', loaderType);
+
+                if (loaderType === 'url') {
+                    formData.append('url', $('#url').val());
+                } else if (loaderType === 'pdf' || loaderType === 'text' || loaderType === 'csv' || loaderType === 'json') {
+                    formData.append('file', $('#file')[0].files[0]);
+                }
+                
+
+                $.ajax({
+                    url: '/load',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        $('#spinner').hide();
+                        $('#loadSuccessMessage').removeClass('d-none');
+                        $('#chatContainer').show();
+                    },
+                    error: function() {
+                        $('#spinner').hide();
+                        $('#startChat').show();
+                        alert('Failed to load the document. Please check the details and try again.');
+                    }
+                });
+            });
+        });
+
+        function sendMessage() {
+            let userInput = $('#userInput').val();
+            if (!userInput.trim()) return;
+            $('#messageSpinner').show();
+            addMessageToChat('User', userInput);
+            $('#userInput').val('');
+
+            $.ajax({
+                url: '/ask',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ question: userInput, session_id: 'unique_session_id' }),
+                success: function(response) {
+                    $('#messageSpinner').hide();
+                    addFormattedMessageToChat('AI', response.answer);
+                },
+                error: function() {
+                    $('#messageSpinner').hide();
+                    addMessageToChat('AI', 'There was an error processing your request.');
+                }
+            });
+        }
+
+        function addMessageToChat(sender, message) {
+            let messageClass = sender === 'User' ? 'user-message' : 'ai-message';
+            $('#chat').append(`<li class="${messageClass} chat-message">${message}</li>`);
+        }
+
+        function addFormattedMessageToChat(sender, message) {
+            let messageClass = sender === 'User' ? 'user-message' : 'ai-message';
+            let formattedMessage = formatMessage(message);
+            $('#chat').append(`<li class="${messageClass} chat-message">${formattedMessage}</li>`);
+        }
+
+        function formatMessage(message) {
+            // Splitting the response into points if it follows the format with numbers and bullet points
+            return message.replace(/(\d+\.\s\*\*[^\*]+\*\*)/g, '\n$1\n').replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
