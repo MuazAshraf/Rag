@@ -6,9 +6,6 @@ from langchain_community.document_loaders import JSONLoader
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain import hub
-import json
-from pathlib import Path
-from pprint import pprint
 from langchain_community.document_loaders import SeleniumURLLoader
 from bs4 import BeautifulSoup
 
@@ -31,13 +28,6 @@ from langchain.document_loaders.base import BaseLoader
 from dotenv import load_dotenv
 load_dotenv('.env')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
-PINECONE_API_ENV = os.getenv('PINECONE_API_ENV')
-LANGCHAIN_TRACING_V2 = os.getenv('LANGCHAIN_TRACING_V2')
-LANGCHAIN_API_KEY = os.getenv('LANGCHAIN_API_KEY')
-GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv('GITHUB_PERSONAL_ACCESS_TOKEN')
-
-
 
 # Initialize Flask app
 app = Flask(__name__)
